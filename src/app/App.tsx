@@ -62,7 +62,7 @@ export const App: React.FC = () => {
       )}
       <Suspense
         fallback={
-          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-400 text-center">
+          <div className="p-6 hig-grouped-card hig-footnote text-[var(--hig-label-secondary)] text-center">
             Carregando módulo...
           </div>
         }
