@@ -93,3 +93,4 @@ O arquivo [`.gitignore`](file:///Users/jvcosta-mba/Dev/softFin/.gitignore) garan
 - `.env` e `.env.*` (chaves locais do Firebase)
 - `.firebase/` e logs de debug dos emuladores
 - `.DS_Store` (arquivos de metadados do macOS)
+
