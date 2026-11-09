@@ -19,13 +19,32 @@ import {
   resolveStatementCompetenceMonth,
 } from '../../shared/utils/date';
 import { removeOrphanedOfflineReceipt } from '../../pwa/offline-storage-queue';
+import { PENDING_WRITES_HARD_LIMIT } from '../../services/firebase/firestore.service';
+
+export type ThemeMode = 'system' | 'light' | 'dark';
+
+export interface QuickEntryUndoSnapshot {
+  createdIds: string[];
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string;
+  amountInCents: number;
+  accountId: string;
+  installmentTotal: number;
+  customFirstInstallmentInCents?: number;
+  balanceDeltaApplied: number;
+  pendingWritesAdded: number;
+}
 
 interface SoftFinState {
   isOnline: boolean;
   privacyModeEnabled: boolean;
+  themeMode: ThemeMode;
   lastUsedAccountId: string;
   pendingWritesCount: number;
   sessionExpiredWithPendingBag: boolean;
+  bagFullAlertOpen: boolean;
+  lastQuickEntryUndo: QuickEntryUndoSnapshot | null;
 
   accounts: Account[];
   categories: Category[];
@@ -36,10 +55,15 @@ interface SoftFinState {
   // Actions
   setOnlineStatus: (online: boolean) => void;
   togglePrivacyMode: () => void;
+  setThemeMode: (mode: ThemeMode) => void;
   setSessionExpiredGuard: (expired: boolean) => void;
+  setBagFullAlertOpen: (open: boolean) => void;
+  simulatePendingBagLoad: (count: number) => void;
   reauthenticatePreservingBag: () => void;
+  undoLastQuickEntry: () => QuickEntryUndoSnapshot | null;
+  dismissQuickEntryUndo: () => void;
 
-  // Q1 & Q8: Quick 3s Transaction + Dynamic Installments
+  // Q1 & Q8: Quick 3s Transaction + Dynamic Installments (returns true if saved, false if blocked by bag cap)
   addQuickOrInstallmentTransaction: (params: {
     amountInCents: number;
     categoryId: string;
@@ -48,7 +72,7 @@ interface SoftFinState {
     installmentTotal?: number;
     customFirstInstallmentInCents?: number;
     status?: 'paid' | 'pending';
-  }) => void;
+  }) => boolean;
 
   // Q1: Scope Edit ("single" | "future")
   editInstallmentWithScope: (
@@ -76,6 +100,13 @@ interface SoftFinState {
 
 const initialPrivacy =
   typeof window !== 'undefined' && localStorage.getItem('softfin_privacy_mode') === 'true';
+
+const getInitialThemeMode = (): ThemeMode => {
+  if (typeof window === 'undefined') return 'system';
+  const stored = localStorage.getItem('color-scheme');
+  if (stored === 'light' || stored === 'dark') return stored;
+  return 'system';
+};
 
 const INITIAL_TRANSACTIONS: Transaction[] = [
   {
@@ -207,9 +238,12 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
 export const useSoftFinStore = create<SoftFinState>((set, get) => ({
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   privacyModeEnabled: initialPrivacy,
+  themeMode: getInitialThemeMode(),
   lastUsedAccountId: 'acc-wallet-main',
   pendingWritesCount: 0,
   sessionExpiredWithPendingBag: false,
+  bagFullAlertOpen: false,
+  lastQuickEntryUndo: null,
 
   accounts: DEFAULT_SEED_ACCOUNTS,
   categories: DEFAULT_SEED_CATEGORIES,
@@ -230,6 +264,7 @@ export const useSoftFinStore = create<SoftFinState>((set, get) => ({
     set((state) => ({
       isOnline: online,
       pendingWritesCount: online ? 0 : state.pendingWritesCount,
+      bagFullAlertOpen: online ? false : state.bagFullAlertOpen,
       transactions: online
         ? state.transactions.map((t) => ({ ...t, hasPendingWrites: false }))
         : state.transactions,
@@ -244,15 +279,71 @@ export const useSoftFinStore = create<SoftFinState>((set, get) => ({
       return { privacyModeEnabled: next };
     }),
 
+  setThemeMode: (mode) =>
+    set(() => {
+      if (typeof document !== 'undefined') {
+        const meta = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]');
+        const contentValue = mode === 'system' ? 'light dark' : mode;
+        if (meta) {
+          meta.content = contentValue;
+        }
+        try {
+          if (mode === 'system') {
+            localStorage.removeItem('color-scheme');
+          } else {
+            localStorage.setItem('color-scheme', mode);
+          }
+        } catch {
+          // Ignore storage quota/privacy errors
+        }
+      }
+      return { themeMode: mode };
+    }),
+
   setSessionExpiredGuard: (expired) => set({ sessionExpiredWithPendingBag: expired }),
+
+  setBagFullAlertOpen: (open) => set({ bagFullAlertOpen: open }),
+
+  simulatePendingBagLoad: (count) =>
+    set({
+      isOnline: false,
+      pendingWritesCount: count,
+      bagFullAlertOpen: count >= PENDING_WRITES_HARD_LIMIT,
+    }),
 
   reauthenticatePreservingBag: () =>
     set((state) => ({
       sessionExpiredWithPendingBag: false,
       isOnline: true,
       pendingWritesCount: 0,
+      bagFullAlertOpen: false,
       transactions: state.transactions.map((t) => ({ ...t, hasPendingWrites: false })),
     })),
+
+  undoLastQuickEntry: () => {
+    const state = get();
+    const undoSnap = state.lastQuickEntryUndo;
+    if (!undoSnap) return null;
+
+    const idSet = new Set(undoSnap.createdIds);
+    set({
+      lastQuickEntryUndo: null,
+      pendingWritesCount: Math.max(0, state.pendingWritesCount - undoSnap.pendingWritesAdded),
+      transactions: state.transactions.filter((t) => !idSet.has(t.id)),
+      accounts: state.accounts.map((acc) =>
+        acc.id === undoSnap.accountId
+          ? {
+              ...acc,
+              currentBalanceInCents: acc.currentBalanceInCents - undoSnap.balanceDeltaApplied,
+            }
+          : acc
+      ),
+    });
+
+    return undoSnap;
+  },
+
+  dismissQuickEntryUndo: () => set({ lastQuickEntryUndo: null }),
 
   addQuickOrInstallmentTransaction: ({
     amountInCents,
@@ -266,6 +357,13 @@ export const useSoftFinStore = create<SoftFinState>((set, get) => ({
     const state = get();
     const maxInstallments = getMaxInstallmentsAllowed(state.isOnline);
     const safeInstallments = Math.min(installmentTotal, maxInstallments);
+
+    // Decisão 6: Bloqueio via Apple Alert se a mochila offline bater o limite de 250 itens
+    if (!state.isOnline && state.pendingWritesCount + safeInstallments > PENDING_WRITES_HARD_LIMIT) {
+      set({ bagFullAlertOpen: true });
+      return false;
+    }
+
     const targetAccountId = accountId || state.lastUsedAccountId;
     const account = state.accounts.find((a) => a.id === targetAccountId);
     const category = state.categories.find((c) => c.id === categoryId);
@@ -316,12 +414,24 @@ export const useSoftFinStore = create<SoftFinState>((set, get) => ({
       });
     }
 
+    const pendingWritesAdded = state.isOnline ? 0 : newDocs.length;
+
     set({
       lastUsedAccountId: targetAccountId,
-      pendingWritesCount: state.isOnline
-        ? state.pendingWritesCount
-        : state.pendingWritesCount + newDocs.length,
+      pendingWritesCount: state.pendingWritesCount + pendingWritesAdded,
       transactions: [...newDocs, ...state.transactions],
+      lastQuickEntryUndo: {
+        createdIds: newDocs.map((d) => d.id),
+        categoryId,
+        categoryName: category?.name || 'Categoria',
+        categoryIcon: category?.icon || '💸',
+        amountInCents,
+        accountId: targetAccountId,
+        installmentTotal: safeInstallments,
+        customFirstInstallmentInCents,
+        balanceDeltaApplied: balanceDeltaForTargetAccount,
+        pendingWritesAdded,
+      },
       // Q5: Atualização incremental de saldo (equivalente local ao increment(delta))
       accounts: state.accounts.map((acc) =>
         acc.id === targetAccountId
@@ -329,6 +439,8 @@ export const useSoftFinStore = create<SoftFinState>((set, get) => ({
           : acc
       ),
     });
+
+    return true;
   },
 
   editInstallmentWithScope: (transactionId, newAmountInCents, scope) =>
