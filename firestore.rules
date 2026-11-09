@@ -1,0 +1,577 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model — SoftFin PWA
+// ===============================================================
+//
+// Multi-tenant isolated per-user hierarchy under /users/{uid}/**
+// All monetary values are stored as integer cents (int) to prevent
+// IEEE 754 floating-point precision errors.
+//
+// 1. Collection: /users/{uid} (UserProfile)
+//    Document ID: {uid} (matches Firebase Auth UID)
+//    Fields:
+//      - uid: string (required, immutable, == uid, 1..128 chars)
+//      - email: string (required, valid email format, 3..320 chars)
+//      - displayName: string (required, 1..120 chars)
+//      - currency: string (required, enum: ['BRL', 'USD', 'EUR'])
+//      - privacyModeEnabled: bool (required)
+//      - lastUsedAccountId: string (optional, 1..128 chars)
+//      - seedCompleted: bool (required)
+//      - createdAt: timestamp (required, immutable)
+//      - updatedAt: timestamp (optional)
+//
+// 2. Collection: /users/{uid}/accounts/{accountId} (Account)
+//    Document ID: {accountId}
+//    Deletion: Physical deletion forbidden (soft-archive via isArchived: true)
+//    Fields:
+//      - id: string (required, immutable, == accountId, 1..128 chars)
+//      - name: string (required, 1..100 chars)
+//      - type: string (required, immutable, enum: ['checking', 'wallet', 'savings', 'credit_card'])
+//      - currentBalanceInCents: int (required, bounded integer cents)
+//      - creditLimitInCents: int (optional, >= 0)
+//      - closingDay: int (optional, 1..31)
+//      - dueDay: int (optional, 1..31)
+//      - isArchived: bool (required)
+//      - color: string (required, 1..32 chars)
+//      - icon: string (required, 1..64 chars)
+//      - updatedAt: timestamp (required)
+//
+// 3. Collection: /users/{uid}/accounts/{cardId}/statements/{statementId} (CreditCardStatement)
+//    Document ID: {statementId} (Format YYYY-MM)
+//    Deletion: Physical deletion forbidden
+//    Fields:
+//      - id: string (required, immutable, == statementId, YYYY-MM format)
+//      - cardId: string (required, immutable, == cardId, 1..128 chars)
+//      - status: string (required, enum: ['open', 'closed', 'paid', 'partial'])
+//      - totalAmountInCents: int (required, >= 0)
+//      - paidAmountInCents: int (required, >= 0)
+//      - remainingBalanceInCents: int (required, >= 0)
+//      - closingDate: string (required, ISO date YYYY-MM-DD, 10..32 chars)
+//      - dueDate: string (required, ISO date YYYY-MM-DD, 10..32 chars)
+//      - updatedAt: timestamp (optional)
+//
+// 4. Collection: /users/{uid}/categories/{categoryId} (Category)
+//    Document ID: {categoryId}
+//    Deletion: Physical deletion forbidden (soft-archive via isArchived: true)
+//    Fields:
+//      - id: string (required, immutable, == categoryId, 1..128 chars)
+//      - name: string (required, 1..80 chars)
+//      - type: string (required, immutable, enum: ['income', 'expense'])
+//      - icon: string (required, 1..64 chars)
+//      - color: string (required, 1..32 chars)
+//      - isDefaultSeed: bool (required, immutable)
+//      - isArchived: bool (required)
+//
+// 5. Collection: /users/{uid}/recurringTemplates/{templateId} (RecurringTemplate)
+//    Document ID: {templateId}
+//    Fields:
+//      - id: string (required, immutable, == templateId, 1..128 chars)
+//      - title: string (required, 1..120 chars)
+//      - type: string (required, enum: ['income', 'expense'])
+//      - amountInCents: int (required, > 0)
+//      - accountId: string (required, 1..128 chars)
+//      - categoryId: string (required, 1..128 chars)
+//      - dayOfMonth: int (required, 1..31)
+//      - isActive: bool (required)
+//      - lastMaterializedMonth: string (required, YYYY-MM format, 7 chars)
+//      - updatedAt: timestamp (required)
+//
+// 6. Collection: /users/{uid}/transactions/{transactionId} (Transaction)
+//    Document ID: {transactionId}
+//    Fields:
+//      - id: string (required, immutable, == transactionId, 1..128 chars)
+//      - type: string (required, immutable, enum: ['income', 'expense', 'transfer'])
+//      - status: string (required, enum: ['pending', 'paid', 'cancelled'])
+//      - amountInCents: int (required, > 0)
+//      - originalAmountInCents: int (optional, > 0)
+//      - discountInCents: int (optional, >= 0)
+//      - description: string (required, 1..250 chars)
+//      - accountId: string (required, 1..128 chars)
+//      - destinationAccountId: string (optional, 1..128 chars)
+//      - categoryId: string (required, 1..128 chars)
+//      - transactionDate: string (required, ISO date YYYY-MM-DD, 10..32 chars)
+//      - competenceMonth: string (required, YYYY-MM format, 7 chars)
+//      - statementId: string (optional, YYYY-MM format, 7 chars)
+//      - installmentGroupId: string (optional, 1..128 chars)
+//      - installmentIndex: int (optional, 1..48)
+//      - installmentTotal: int (optional, 1..48)
+//      - isAnticipated: bool (optional)
+//      - recurringTemplateId: string (optional, 1..128 chars)
+//      - attachmentUrl: string (optional, valid https/http URL, 1..2048 chars)
+//      - attachmentSyncStatus: string (optional, enum: ['none', 'queued', 'uploading', 'synced', 'failed'])
+//      - createdAt: timestamp (required, immutable)
+//      - updatedAt: timestamp (required)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the authenticated user owns the resource tree
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // Check if user is owner based on document's uid field
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    // Verify UID hasn't been tampered with on create
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    // Ensure uid field is not modified on update
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    // Validate required fields exist on the incoming document
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Validate that the document contains only the allowed schema fields
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validate that immutable fields have not been modified during an update
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Validate required string field with min and max length bounds
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    // Validate optional string field (if present, must be string within length bounds)
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+        (request.resource.data[field] is string &&
+         request.resource.data[field].size() >= minLen &&
+         request.resource.data[field].size() <= maxLen);
+    }
+
+    // Validate URL format (must start with https:// or http://)
+    function isValidUrl(url) {
+      return url is string &&
+        (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // Validate email format
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // Validate YYYY-MM competence/statement month format
+    function isValidYearMonth(monthStr) {
+      return monthStr is string &&
+        monthStr.size() == 7 &&
+        monthStr.matches("^\\d{4}-\\d{2}$");
+    }
+
+    // Validate ISO 8601 date (YYYY-MM-DD) or datetime string format
+    function isValidIsoDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.size() >= 10 &&
+        dateStr.size() <= 32 &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}.*Z?)?$");
+    }
+
+    // Validate integer cents within safe financial bounds (-999,999,999,999 to +999,999,999,999)
+    function isBoundedIntCents(value) {
+      return value is int &&
+        value >= -999999999999 &&
+        value <= 999999999999;
+    }
+
+    // Validate positive integer cents (> 0)
+    function isPositiveIntCents(value) {
+      return value is int &&
+        value > 0 &&
+        value <= 999999999999;
+    }
+
+    // Validate non-negative integer cents (>= 0)
+    function isNonNegativeIntCents(value) {
+      return value is int &&
+        value >= 0 &&
+        value <= 999999999999;
+    }
+
+    // Validate day of month (1..31)
+    function isValidDayOfMonth(day) {
+      return day is int && day >= 1 && day <= 31;
+    }
+
+    // ===============================================================
+    // Domain Validators (Used in BOTH create and update)
+    // ===============================================================
+
+    // 1. UserProfile Validator (/users/{uid})
+    function isValidUserProfile(data, uid) {
+      let allowedFields = [
+        'uid',
+        'email',
+        'displayName',
+        'currency',
+        'privacyModeEnabled',
+        'lastUsedAccountId',
+        'seedCompleted',
+        'createdAt',
+        'updatedAt'
+      ];
+      let requiredFields = [
+        'uid',
+        'email',
+        'displayName',
+        'currency',
+        'privacyModeEnabled',
+        'seedCompleted',
+        'createdAt'
+      ];
+
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(requiredFields) &&
+        data.uid == uid &&
+        validStringLength('uid', 1, 128) &&
+        validStringLength('email', 3, 320) &&
+        isValidEmail(data.email) &&
+        validStringLength('displayName', 1, 120) &&
+        data.currency is string &&
+        data.currency in ['BRL', 'USD', 'EUR'] &&
+        data.privacyModeEnabled is bool &&
+        isValidOptionalString('lastUsedAccountId', 1, 128) &&
+        data.seedCompleted is bool &&
+        data.createdAt is timestamp &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // 2. Account Validator (/users/{uid}/accounts/{accountId})
+    function isValidAccount(data, accountId) {
+      let allowedFields = [
+        'id',
+        'name',
+        'type',
+        'currentBalanceInCents',
+        'creditLimitInCents',
+        'closingDay',
+        'dueDay',
+        'isArchived',
+        'color',
+        'icon',
+        'updatedAt'
+      ];
+      let requiredFields = [
+        'id',
+        'name',
+        'type',
+        'currentBalanceInCents',
+        'isArchived',
+        'color',
+        'icon',
+        'updatedAt'
+      ];
+
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(requiredFields) &&
+        data.id == accountId &&
+        validStringLength('id', 1, 128) &&
+        validStringLength('name', 1, 100) &&
+        data.type is string &&
+        data.type in ['checking', 'wallet', 'savings', 'credit_card'] &&
+        isBoundedIntCents(data.currentBalanceInCents) &&
+        (!('creditLimitInCents' in data) || isNonNegativeIntCents(data.creditLimitInCents)) &&
+        (!('closingDay' in data) || isValidDayOfMonth(data.closingDay)) &&
+        (!('dueDay' in data) || isValidDayOfMonth(data.dueDay)) &&
+        data.isArchived is bool &&
+        validStringLength('color', 1, 32) &&
+        validStringLength('icon', 1, 64) &&
+        data.updatedAt is timestamp;
+    }
+
+    // 3. CreditCardStatement Validator (/users/{uid}/accounts/{cardId}/statements/{statementId})
+    function isValidCreditCardStatement(data, cardId, statementId) {
+      let allowedFields = [
+        'id',
+        'cardId',
+        'status',
+        'totalAmountInCents',
+        'paidAmountInCents',
+        'remainingBalanceInCents',
+        'closingDate',
+        'dueDate',
+        'updatedAt'
+      ];
+      let requiredFields = [
+        'id',
+        'cardId',
+        'status',
+        'totalAmountInCents',
+        'paidAmountInCents',
+        'remainingBalanceInCents',
+        'closingDate',
+        'dueDate'
+      ];
+
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(requiredFields) &&
+        data.id == statementId &&
+        isValidYearMonth(data.id) &&
+        data.cardId == cardId &&
+        validStringLength('cardId', 1, 128) &&
+        data.status is string &&
+        data.status in ['open', 'closed', 'paid', 'partial'] &&
+        isNonNegativeIntCents(data.totalAmountInCents) &&
+        isNonNegativeIntCents(data.paidAmountInCents) &&
+        isNonNegativeIntCents(data.remainingBalanceInCents) &&
+        isValidIsoDateString(data.closingDate) &&
+        isValidIsoDateString(data.dueDate) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // 4. Category Validator (/users/{uid}/categories/{categoryId})
+    function isValidCategory(data, categoryId) {
+      let allowedFields = [
+        'id',
+        'name',
+        'type',
+        'icon',
+        'color',
+        'isDefaultSeed',
+        'isArchived'
+      ];
+      let requiredFields = [
+        'id',
+        'name',
+        'type',
+        'icon',
+        'color',
+        'isDefaultSeed',
+        'isArchived'
+      ];
+
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(requiredFields) &&
+        data.id == categoryId &&
+        validStringLength('id', 1, 128) &&
+        validStringLength('name', 1, 80) &&
+        data.type is string &&
+        data.type in ['income', 'expense'] &&
+        validStringLength('icon', 1, 64) &&
+        validStringLength('color', 1, 32) &&
+        data.isDefaultSeed is bool &&
+        data.isArchived is bool;
+    }
+
+    // 5. RecurringTemplate Validator (/users/{uid}/recurringTemplates/{templateId})
+    function isValidRecurringTemplate(data, templateId) {
+      let allowedFields = [
+        'id',
+        'title',
+        'type',
+        'amountInCents',
+        'accountId',
+        'categoryId',
+        'dayOfMonth',
+        'isActive',
+        'lastMaterializedMonth',
+        'updatedAt'
+      ];
+      let requiredFields = [
+        'id',
+        'title',
+        'type',
+        'amountInCents',
+        'accountId',
+        'categoryId',
+        'dayOfMonth',
+        'isActive',
+        'lastMaterializedMonth',
+        'updatedAt'
+      ];
+
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(requiredFields) &&
+        data.id == templateId &&
+        validStringLength('id', 1, 128) &&
+        validStringLength('title', 1, 120) &&
+        data.type is string &&
+        data.type in ['income', 'expense'] &&
+        isPositiveIntCents(data.amountInCents) &&
+        validStringLength('accountId', 1, 128) &&
+        validStringLength('categoryId', 1, 128) &&
+        isValidDayOfMonth(data.dayOfMonth) &&
+        data.isActive is bool &&
+        isValidYearMonth(data.lastMaterializedMonth) &&
+        data.updatedAt is timestamp;
+    }
+
+    // 6. Transaction Validator (/users/{uid}/transactions/{transactionId})
+    function isValidTransaction(data, transactionId) {
+      let allowedFields = [
+        'id',
+        'type',
+        'status',
+        'amountInCents',
+        'originalAmountInCents',
+        'discountInCents',
+        'description',
+        'accountId',
+        'destinationAccountId',
+        'categoryId',
+        'transactionDate',
+        'competenceMonth',
+        'statementId',
+        'installmentGroupId',
+        'installmentIndex',
+        'installmentTotal',
+        'isAnticipated',
+        'recurringTemplateId',
+        'attachmentUrl',
+        'attachmentSyncStatus',
+        'createdAt',
+        'updatedAt'
+      ];
+      let requiredFields = [
+        'id',
+        'type',
+        'status',
+        'amountInCents',
+        'description',
+        'accountId',
+        'categoryId',
+        'transactionDate',
+        'competenceMonth',
+        'createdAt',
+        'updatedAt'
+      ];
+
+      return hasOnlyAllowedFields(allowedFields) &&
+        hasRequiredFields(requiredFields) &&
+        data.id == transactionId &&
+        validStringLength('id', 1, 128) &&
+        data.type is string &&
+        data.type in ['income', 'expense', 'transfer'] &&
+        data.status is string &&
+        data.status in ['pending', 'paid', 'cancelled'] &&
+        isPositiveIntCents(data.amountInCents) &&
+        (!('originalAmountInCents' in data) || isPositiveIntCents(data.originalAmountInCents)) &&
+        (!('discountInCents' in data) || isNonNegativeIntCents(data.discountInCents)) &&
+        validStringLength('description', 1, 250) &&
+        validStringLength('accountId', 1, 128) &&
+        isValidOptionalString('destinationAccountId', 1, 128) &&
+        (data.type != 'transfer' || ('destinationAccountId' in data && data.destinationAccountId != data.accountId)) &&
+        validStringLength('categoryId', 1, 128) &&
+        isValidIsoDateString(data.transactionDate) &&
+        isValidYearMonth(data.competenceMonth) &&
+        (!('statementId' in data) || isValidYearMonth(data.statementId)) &&
+        isValidOptionalString('installmentGroupId', 1, 128) &&
+        (!('installmentIndex' in data) || (data.installmentIndex is int && data.installmentIndex >= 1 && data.installmentIndex <= 48)) &&
+        (!('installmentTotal' in data) || (data.installmentTotal is int && data.installmentTotal >= 1 && data.installmentTotal <= 48)) &&
+        (!('installmentIndex' in data && 'installmentTotal' in data) || data.installmentIndex <= data.installmentTotal) &&
+        (!('isAnticipated' in data) || data.isAnticipated is bool) &&
+        isValidOptionalString('recurringTemplateId', 1, 128) &&
+        isValidOptionalString('attachmentUrl', 1, 2048) &&
+        (!('attachmentUrl' in data) || isValidUrl(data.attachmentUrl)) &&
+        (!('attachmentSyncStatus' in data) || (data.attachmentSyncStatus is string && data.attachmentSyncStatus in ['none', 'queued', 'uploading', 'synced', 'failed'])) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // ===============================================================
+    // Collection Match Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) &&
+        uidUnchanged() &&
+        isValidUserProfile(request.resource.data, uid);
+      allow update: if isOwner(uid) &&
+         isDocOwner() &&
+        uidNotModified() &&
+        isValidUserProfile(request.resource.data, uid) &&
+        areImmutableFieldsUnchanged(['uid', 'createdAt']);
+      allow delete: if false;
+
+      // Accounts subcollection (soft-archived via isArchived: true; physical delete forbidden)
+      match /accounts/{accountId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          isValidAccount(request.resource.data, accountId);
+        allow update: if isOwner(uid) &&
+          isValidAccount(request.resource.data, accountId) &&
+          areImmutableFieldsUnchanged(['id', 'type']);
+        allow delete: if false;
+      }
+
+      // Credit Card Statements subcollection
+      match /accounts/{cardId}/statements/{statementId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          isValidCreditCardStatement(request.resource.data, cardId, statementId);
+        allow update: if isOwner(uid) &&
+          isValidCreditCardStatement(request.resource.data, cardId, statementId) &&
+          areImmutableFieldsUnchanged(['id', 'cardId']);
+        allow delete: if false;
+      }
+
+      // Categories subcollection (soft-archived via isArchived: true; physical delete forbidden)
+      match /categories/{categoryId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          isValidCategory(request.resource.data, categoryId);
+        allow update: if isOwner(uid) &&
+          isValidCategory(request.resource.data, categoryId) &&
+          areImmutableFieldsUnchanged(['id', 'type', 'isDefaultSeed']);
+        allow delete: if false;
+      }
+
+      // Recurring Templates subcollection
+      match /recurringTemplates/{templateId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          isValidRecurringTemplate(request.resource.data, templateId);
+        allow update: if isOwner(uid) &&
+          isValidRecurringTemplate(request.resource.data, templateId) &&
+          areImmutableFieldsUnchanged(['id']);
+        allow delete: if isOwner(uid);
+      }
+
+      // Transactions subcollection
+      match /transactions/{transactionId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          isValidTransaction(request.resource.data, transactionId);
+        allow update: if isOwner(uid) &&
+          isValidTransaction(request.resource.data, transactionId) &&
+          areImmutableFieldsUnchanged(['id', 'type', 'createdAt']);
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    // Default deny-all fallback for any other path
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
