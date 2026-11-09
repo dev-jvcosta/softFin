@@ -1,18 +1,251 @@
 @import "tailwindcss";
 
-/* MANDATORY: Apply color-scheme to :root for viewport-wide theming */
+/* ==========================================================================
+   APPLE HUMAN INTERFACE GUIDELINES (HIG) DESIGN SYSTEM TOKENS
+   Fonte local: assets/design-system-apple/03-foundations/{04-color,11-materials,17-typography}.md
+   ========================================================================== */
+
 :root {
+  /* Tier 1: Literal Apple System Colors (Light & Dark Pairs from 04-color.md) */
+  --apple-bg-grouped-primary-light: #f2f2f7;
+  --apple-bg-grouped-primary-dark: #000000;
+
+  --apple-bg-grouped-secondary-light: #ffffff;
+  --apple-bg-grouped-secondary-dark: #1c1c1e;
+
+  --apple-bg-grouped-tertiary-light: #f2f2f7;
+  --apple-bg-grouped-tertiary-dark: #2c2c2e;
+
+  --apple-label-primary-light: #000000;
+  --apple-label-primary-dark: #ffffff;
+
+  --apple-label-secondary-light: rgba(60, 60, 67, 0.68);
+  --apple-label-secondary-dark: rgba(235, 235, 245, 0.65);
+
+  --apple-label-tertiary-light: rgba(60, 60, 67, 0.38);
+  --apple-label-tertiary-dark: rgba(235, 235, 245, 0.38);
+
+  --apple-separator-light: rgba(60, 60, 67, 0.18);
+  --apple-separator-dark: rgba(84, 84, 88, 0.55);
+
+  /* Unified System Colors (04-color.md lines 228-241) */
+  --apple-blue-light: rgb(0, 136, 255);
+  --apple-blue-dark: rgb(0, 145, 255);
+
+  --apple-green-light: rgb(52, 199, 89);
+  --apple-green-dark: rgb(48, 209, 88);
+
+  --apple-red-light: rgb(255, 56, 60);
+  --apple-red-dark: rgb(255, 66, 69);
+
+  --apple-orange-light: rgb(255, 141, 40);
+  --apple-orange-dark: rgb(255, 146, 48);
+
+  --apple-purple-light: rgb(203, 48, 224);
+  --apple-purple-dark: rgb(219, 52, 242);
+
+  --apple-indigo-light: rgb(97, 85, 245);
+  --apple-indigo-dark: rgb(109, 124, 255);
+
+  --apple-gray5-light: rgb(229, 229, 234);
+  --apple-gray5-dark: rgb(44, 44, 46);
+
+  --apple-glass-light: rgba(249, 249, 251, 0.78);
+  --apple-glass-dark: rgba(28, 28, 30, 0.76);
+
+  /* Tier 2: Semantic Tokens with @media fallback for pre-light-dark() browsers */
+  --hig-bg-grouped: var(--apple-bg-grouped-primary-light);
+  --hig-bg-card: var(--apple-bg-grouped-secondary-light);
+  --hig-bg-tertiary: var(--apple-bg-grouped-tertiary-light);
+  --hig-label: var(--apple-label-primary-light);
+  --hig-label-secondary: var(--apple-label-secondary-light);
+  --hig-label-tertiary: var(--apple-label-tertiary-light);
+  --hig-separator: var(--apple-separator-light);
+  --hig-blue: var(--apple-blue-light);
+  --hig-green: var(--apple-green-light);
+  --hig-red: var(--apple-red-light);
+  --hig-orange: var(--apple-orange-light);
+  --hig-purple: var(--apple-purple-light);
+  --hig-indigo: var(--apple-indigo-light);
+  --hig-fill-secondary: var(--apple-gray5-light);
+  --hig-glass-surface: var(--apple-glass-light);
+
+  @media (prefers-color-scheme: dark) {
+    --hig-bg-grouped: var(--apple-bg-grouped-primary-dark);
+    --hig-bg-card: var(--apple-bg-grouped-secondary-dark);
+    --hig-bg-tertiary: var(--apple-bg-grouped-tertiary-dark);
+    --hig-label: var(--apple-label-primary-dark);
+    --hig-label-secondary: var(--apple-label-secondary-dark);
+    --hig-label-tertiary: var(--apple-label-tertiary-dark);
+    --hig-separator: var(--apple-separator-dark);
+    --hig-blue: var(--apple-blue-dark);
+    --hig-green: var(--apple-green-dark);
+    --hig-red: var(--apple-red-dark);
+    --hig-orange: var(--apple-orange-dark);
+    --hig-purple: var(--apple-purple-dark);
+    --hig-indigo: var(--apple-indigo-dark);
+    --hig-fill-secondary: var(--apple-gray5-dark);
+    --hig-glass-surface: var(--apple-glass-dark);
+  }
+
+  @supports (color: light-dark(white, black)) {
+    --hig-bg-grouped: light-dark(var(--apple-bg-grouped-primary-light), var(--apple-bg-grouped-primary-dark));
+    --hig-bg-card: light-dark(var(--apple-bg-grouped-secondary-light), var(--apple-bg-grouped-secondary-dark));
+    --hig-bg-tertiary: light-dark(var(--apple-bg-grouped-tertiary-light), var(--apple-bg-grouped-tertiary-dark));
+    --hig-label: light-dark(var(--apple-label-primary-light), var(--apple-label-primary-dark));
+    --hig-label-secondary: light-dark(var(--apple-label-secondary-light), var(--apple-label-secondary-dark));
+    --hig-label-tertiary: light-dark(var(--apple-label-tertiary-light), var(--apple-label-tertiary-dark));
+    --hig-separator: light-dark(var(--apple-separator-light), var(--apple-separator-dark));
+    --hig-blue: light-dark(var(--apple-blue-light), var(--apple-blue-dark));
+    --hig-green: light-dark(var(--apple-green-light), var(--apple-green-dark));
+    --hig-red: light-dark(var(--apple-red-light), var(--apple-red-dark));
+    --hig-orange: light-dark(var(--apple-orange-light), var(--apple-orange-dark));
+    --hig-purple: light-dark(var(--apple-purple-light), var(--apple-purple-dark));
+    --hig-indigo: light-dark(var(--apple-indigo-light), var(--apple-indigo-dark));
+    --hig-fill-secondary: light-dark(var(--apple-gray5-light), var(--apple-gray5-dark));
+    --hig-glass-surface: light-dark(var(--apple-glass-light), var(--apple-glass-dark));
+  }
+
+  /* MANDATORY (`dark-mode` & `dark-mode-toggle`): Sync :root color-scheme with <meta name="color-scheme"> */
   color-scheme: light dark;
+  accent-color: var(--hig-blue);
+
+  &:has(> head > meta[name="color-scheme"][content="dark"]) {
+    color-scheme: dark;
+  }
+  &:has(> head > meta[name="color-scheme"][content="light"]) {
+    color-scheme: light;
+  }
+}
+
+body {
+  background-color: var(--hig-bg-grouped);
+  color: var(--hig-label);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+}
+
+/* ==========================================================================
+   APPLE HIG TYPOGRAPHY SCALE (17-typography.md — iOS/iPadOS Default Large)
+   ========================================================================== */
+
+.hig-large-title {
+  font-size: 2.125rem; /* 34pt */
+  line-height: 2.5625rem; /* 41pt */
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.hig-title-1 {
+  font-size: 1.75rem; /* 28pt */
+  line-height: 2.125rem; /* 34pt */
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.hig-title-2 {
+  font-size: 1.375rem; /* 22pt */
+  line-height: 1.75rem; /* 28pt */
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.hig-title-3 {
+  font-size: 1.25rem; /* 20pt */
+  line-height: 1.5625rem; /* 25pt */
+  font-weight: 600;
+}
+
+.hig-headline {
+  font-size: 1.0625rem; /* 17pt */
+  line-height: 1.375rem; /* 22pt */
+  font-weight: 600;
+}
+
+.hig-body {
+  font-size: 1.0625rem; /* 17pt */
+  line-height: 1.375rem; /* 22pt */
+  font-weight: 400;
+}
+
+.hig-callout {
+  font-size: 1rem; /* 16pt */
+  line-height: 1.3125rem; /* 21pt */
+}
+
+.hig-subhead {
+  font-size: 0.9375rem; /* 15pt */
+  line-height: 1.25rem; /* 20pt */
+}
+
+.hig-footnote {
+  font-size: 0.8125rem; /* 13pt */
+  line-height: 1.125rem; /* 18pt */
+}
+
+.hig-caption-1 {
+  font-size: 0.75rem; /* 12pt */
+  line-height: 1rem; /* 16pt */
+}
+
+/* ==========================================================================
+   APPLE HIG MATERIALS (11-materials.md)
+   - Liquid Glass: EXCLUSIVO para navegação flutuante (Toolbars, Tab Bars, Sidebars, Alerts)
+   - Content Layer: SÓLIDO (systemGroupedBackground / secondarySystemGroupedBackground)
+   ========================================================================== */
+
+.hig-liquid-glass {
+  background-color: var(--hig-glass-surface);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-color: var(--hig-separator);
+}
+
+.hig-liquid-glass-tinted {
+  background-color: var(--hig-blue);
+  color: #ffffff;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 8px 24px -4px rgba(0, 136, 255, 0.42);
+}
+
+.hig-grouped-card {
+  background-color: var(--hig-bg-card);
+  border: 1px solid var(--hig-separator);
+  border-radius: 1rem;
+}
+
+.hig-tertiary-surface {
+  background-color: var(--hig-bg-tertiary);
+  border: 1px solid var(--hig-separator);
+  border-radius: 0.75rem;
+}
+
+.hig-grouped-list > *:not(:last-child) {
+  border-bottom: 1px solid var(--hig-separator);
+}
+
+/* ==========================================================================
+   NATIVE DIALOG & POPOVER OVERLAYS (`dialog` & `menu` guides)
+   ========================================================================== */
+
+/* MANDATORY (`dialog`): Prevent scroll chaining to underlying page without overflow:hidden on body */
+dialog:modal {
+  overscroll-behavior: contain;
 }
 
 dialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  background-color: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(3px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+[popover]:where(:popover-open, .\:popover-open) {
+  display: block;
 }
 
 /* DO ONLY apply this class to transaction items OUTSIDE the initial layout viewport (below-the-fold) */
 .tx-item-deferred {
   content-visibility: auto;
-  contain-intrinsic-size: auto none auto 76px;
+  contain-intrinsic-size: auto none auto 72px;
 }
-

@@ -5,7 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- MANDATORY: Declare support for both light and dark themes to avoid FOUC -->
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#0F172A" />
+    <script>
+      try {
+        document.querySelector('meta[name="color-scheme"]').content =
+          localStorage.getItem('color-scheme') ?? 'light dark';
+      } catch (_) {}
+    </script>
+    <meta name="theme-color" content="#0088FF" />
     <meta name="description" content="SoftFin — Controle financeiro rápido, sem atrito e 100% funcional offline." />
 
     <!-- Apple iOS / iPadOS PWA Standalone Config -->
@@ -21,16 +27,16 @@
 
     <title>SoftFin — Gestão Financeira Inteligente</title>
 
-    <!-- Critical CSS Inline para App Shell Instantâneo (Zero CLS / LCP < 1.8s) -->
+    <!-- Critical CSS Inline para App Shell Instantâneo (Apple HIG System Grouped Background) -->
     <style>
       :root {
         color-scheme: light dark;
       }
       body {
         margin: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background-color: #0f172a;
-        color: #f8fafc;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+        background-color: light-dark(#f2f2f7, #000000);
+        color: light-dark(#000000, #ffffff);
         -webkit-font-smoothing: antialiased;
       }
     </style>
