@@ -25,112 +25,129 @@ export const CardStatementPage: React.FC = () => {
     if (mode === 'full') {
       payCreditCardStatement(cardStatement.remainingBalanceInCents);
       setPaymentFeedback(
-        '✅ Fatura paga integralmente! Valor debitado da Carteira Principal.'
+        'Fatura paga integralmente. Valor debitado da Carteira Principal.'
       );
     } else {
       const partialAmount = 60000; // R$ 600,00
       const rolledOver = Math.max(0, cardStatement.remainingBalanceInCents - partialAmount);
       payCreditCardStatement(partialAmount);
       setPaymentFeedback(
-        `⚠️ Pagamento parcial de R$ 600,00 registrado. O restante (${formatCentsBRL(
+        `Pagamento parcial de R$ 600,00 registrado. O saldo restante (${formatCentsBRL(
           rolledOver
-        )}) já foi rolado automaticamente para a fatura do próximo mês (Q4).`
+        )}) foi rolado automaticamente para a próxima fatura.`
       );
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Caixa Mensal da Fatura (Q4) */}
-      <section className="p-4 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
-        <div className="flex items-center justify-between">
+      {/* Resumo da Fatura Mensal (Q4) */}
+      <section className="p-5 hig-grouped-card space-y-3">
+        <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-bold text-slate-100">
-              💳 Caixa da Fatura • {cardStatement.id}
-            </h2>
-            <p className="text-xs text-slate-400">
-              Fechamento dia 25 • Compras no dia 25 ou depois já caem no mês seguinte (Q4)
+            <span className="hig-footnote font-medium text-[var(--hig-label-secondary)]">
+              Cartão Nubank Ultravioleta • {cardStatement.id}
+            </span>
+            <p className="hig-large-title mt-1">
+              {formatCentsBRL(cardStatement.remainingBalanceInCents, privacyModeEnabled)}
             </p>
           </div>
-          <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-purple-500/15 text-purple-300">
-            Status: {cardStatement.status.toUpperCase()}
+
+          <span
+            className="hig-caption-1 font-semibold px-3 py-1 rounded-full"
+            style={{
+              backgroundColor: 'rgba(203, 48, 224, 0.14)',
+              color: 'var(--hig-purple)',
+            }}
+          >
+            {cardStatement.status === 'paid'
+              ? 'Paga'
+              : cardStatement.status === 'partial'
+              ? 'Parcial'
+              : 'Aberta'}
           </span>
         </div>
 
-        <div className="pt-2 border-t border-slate-800 flex items-baseline justify-between">
-          <span className="text-xs text-slate-400">Saldo atual da fatura:</span>
-          <span className="text-xl font-extrabold text-white">
-            {formatCentsBRL(cardStatement.remainingBalanceInCents, privacyModeEnabled)}
-          </span>
-        </div>
+        <p className="hig-caption-1 text-[var(--hig-label-secondary)] pt-2 border-t border-[var(--hig-separator)]">
+          Fechamento automático dia 25 • Compras no dia 25 ou após entram na fatura seguinte.
+        </p>
       </section>
 
-      {/* Antecipar Parcelas com Desconto (Estilo Nubank - Q4) */}
-      <section className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-100">
-            ⚡ Antecipar Parcelas Futuras com Desconto (Q4)
-          </h3>
-          <span className="text-xs font-semibold text-emerald-400">
-            Guarda valor antigo riscado
+      {/* Antecipar Parcelas com Desconto em Lista Agrupada (`06-lists-and-tables.md` • Q4) */}
+      <section className="space-y-2">
+        <div className="px-1 flex items-center justify-between">
+          <h2 className="hig-footnote font-semibold uppercase tracking-wide text-[var(--hig-label-secondary)]">
+            Antecipar Parcelas com Desconto
+          </h2>
+          <span
+            className="hig-caption-1 font-semibold"
+            style={{ color: 'var(--hig-green)' }}
+          >
+            Valor antigo fica riscado
           </span>
         </div>
 
-        {futureInstallments.length === 0 ? (
-          <p className="text-xs text-slate-400">
-            Todas as parcelas futuras elegíveis já foram antecipadas para a fatura atual!
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {futureInstallments.map((item) => (
+        <div className="hig-grouped-card hig-grouped-list overflow-hidden">
+          {futureInstallments.length === 0 ? (
+            <p className="p-4 hig-footnote text-[var(--hig-label-secondary)]">
+              Todas as parcelas futuras elegíveis já foram antecipadas para a fatura atual.
+            </p>
+          ) : (
+            futureInstallments.map((item) => (
               <div
                 key={item.id}
-                className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2"
+                className="p-3.5 flex items-center justify-between gap-3"
               >
-                <div>
-                  <p className="text-xs font-bold text-slate-100">{item.description}</p>
-                  <p className="text-xs text-slate-400">
-                    Fatura original: {item.competenceMonth} • Valor:{' '}
+                <div className="min-w-0">
+                  <p className="hig-subhead font-semibold truncate">{item.description}</p>
+                  <p className="hig-caption-1 text-[var(--hig-label-secondary)]">
+                    Fatura original: {item.competenceMonth} •{' '}
                     {formatCentsBRL(item.amountInCents, privacyModeEnabled)}
                   </p>
                 </div>
+
                 <button
                   type="button"
                   onClick={() => anticipateInstallmentWithDiscount(item.id, 1500)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold"
+                  className="shrink-0 px-3.5 py-1.5 rounded-full text-white hig-caption-1 font-semibold active:scale-95 transition"
+                  style={{ backgroundColor: 'var(--hig-purple)' }}
                 >
-                  Antecipar (-R$ 15,00)
+                  Antecipar (-R$ 15)
                 </button>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </section>
 
-      {/* Pagamento Total vs. Pagamento Parcial (Q4) */}
-      <section className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-        <h3 className="text-xs font-bold text-slate-100">
-          💰 Pagamento da Fatura (Total ou Parcial • Q4)
-        </h3>
+      {/* Pagamento Total vs. Parcial (Q4) */}
+      <section className="p-4 hig-grouped-card space-y-3">
+        <h2 className="hig-subhead font-semibold">Pagamento da Fatura</h2>
+
         <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
             onClick={() => handlePayStatement('full')}
-            className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+            className="min-h-[44px] px-3 rounded-xl bg-[var(--hig-blue)] text-white hig-footnote font-semibold active:scale-98 transition"
           >
             Pagar Total
           </button>
+
           <button
             type="button"
             onClick={() => handlePayStatement('partial')}
-            className="py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500 text-xs font-bold text-amber-300"
+            className="min-h-[44px] px-3 rounded-xl hig-tertiary-surface hig-footnote font-semibold text-[var(--hig-label)] active:scale-98 transition"
           >
             Pagar Parcial (R$ 600)
           </button>
         </div>
 
         {paymentFeedback && (
-          <p className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-emerald-400 font-semibold">
+          <p
+            role="status"
+            className="p-3 rounded-xl hig-tertiary-surface hig-caption-1 font-medium"
+            style={{ color: 'var(--hig-green)' }}
+          >
             {paymentFeedback}
           </p>
         )}
@@ -138,4 +155,3 @@ export const CardStatementPage: React.FC = () => {
     </div>
   );
 };
-

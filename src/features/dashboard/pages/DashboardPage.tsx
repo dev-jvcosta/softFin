@@ -39,126 +39,184 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Card de Saldo Principal (LCP Element) */}
-      <section
-        aria-label="Resumo de Saldo"
-        className="p-5 rounded-3xl bg-slate-900 border border-slate-800 shadow-lg"
-      >
+      {/* Card de Saldo Principal Sólido (`systemGroupedBackground` • LCP Element) */}
+      <section aria-label="Resumo de Saldo" className="p-5 hig-grouped-card">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">
-            Saldo Atual Disponível (Pago • Q2)
+          <span className="hig-footnote font-medium text-[var(--hig-label-secondary)]">
+            Saldo Disponível (Carteira Principal)
           </span>
-          <span className="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-400">
+          <span
+            className="hig-caption-1 font-semibold px-2.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: 'rgba(52, 199, 89, 0.14)',
+              color: 'var(--hig-green)',
+            }}
+          >
             Nov 2026
           </span>
         </div>
 
-        <p className="text-3xl font-extrabold tracking-tight text-white mt-1.5">
+        <p className="hig-large-title mt-1">
           {formatCentsBRL(currentBalanceCents, privacyModeEnabled)}
         </p>
 
-        <div className="mt-4 pt-3 border-t border-slate-800 grid grid-cols-2 gap-3 text-xs">
+        <div className="mt-4 pt-3 border-t border-[var(--hig-separator)] grid grid-cols-2 gap-3">
           <div>
-            <span className="text-slate-400 block">Saldo Projetado (c/ Pendentes)</span>
-            <span className="font-bold text-amber-400 text-sm">
+            <span className="hig-caption-1 text-[var(--hig-label-secondary)] block">
+              Saldo Projetado do Mês
+            </span>
+            <span
+              className="hig-subhead font-semibold"
+              style={{ color: 'var(--hig-orange)' }}
+            >
               {formatCentsBRL(projectedBalanceCents, privacyModeEnabled)}
             </span>
           </div>
           <div className="text-right">
-            <span className="text-slate-400 block">Pendentes na Carteira</span>
-            <span className="font-bold text-rose-400 text-sm">
+            <span className="hig-caption-1 text-[var(--hig-label-secondary)] block">
+              Pendentes a Pagar
+            </span>
+            <span
+              className="hig-subhead font-semibold"
+              style={{ color: 'var(--hig-red)' }}
+            >
               - {formatCentsBRL(pendingExpensesCents, privacyModeEnabled)}
             </span>
           </div>
         </div>
       </section>
 
-      {/* Atalho Anotação Relâmpago (Regra dos 3 Segundos - Q8) */}
+      {/* Card de Atalho Rápido (Regra dos 3 Segundos • Estilo Apple Wallet/Reminders) */}
       <button
         type="button"
         onClick={onOpenQuickEntry}
-        className="w-full p-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 flex items-center justify-between text-left hover:bg-emerald-500/15 transition"
+        className="w-full p-4 hig-grouped-card flex items-center justify-between gap-3 text-left hover:border-[var(--hig-blue)] active:scale-99 transition"
       >
-        <div>
-          <p className="text-xs font-extrabold text-emerald-400">
-            ⚡ Anotação Relâmpago em 3 Segundos (Modo TDAH • Q8)
-          </p>
-          <p className="text-xs text-slate-300 mt-0.5">
-            Digite só o Valor e toque na Categoria. Data, Conta e Descrição preenchem sozinhos!
-          </p>
+        <div className="flex items-center gap-3 min-w-0">
+          <span
+            aria-hidden="true"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
+            style={{ backgroundColor: 'var(--hig-blue)' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+          </span>
+          <div className="min-w-0">
+            <p className="hig-subhead font-semibold text-[var(--hig-blue)]">
+              Anotação Relâmpago em 3 Segundos
+            </p>
+            <p className="hig-caption-1 text-[var(--hig-label-secondary)] truncate">
+              Digite o valor e toque na categoria. Tudo preenche sozinho.
+            </p>
+          </div>
         </div>
-        <span className="text-sm font-bold text-emerald-400">Abrir →</span>
+        <span
+          aria-hidden="true"
+          className="text-[var(--hig-label-tertiary)] text-xl leading-none shrink-0"
+        >
+          ›
+        </span>
       </button>
 
-      {/* Resumo da Caixa da Fatura do Cartão (Q4) */}
-      <div
+      {/* Resumo da Fatura do Cartão (Q4) */}
+      <button
+        type="button"
         onClick={() => onNavigateTab('card')}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && onNavigateTab('card')}
-        className="cursor-pointer p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2 hover:border-purple-500/50 transition"
+        className="w-full p-4 hig-grouped-card text-left space-y-2.5 hover:border-[var(--hig-purple)] transition"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-lg">💳</span>
-            <div>
-              <p className="text-xs font-bold text-slate-100">Cartão Nubank Ultravioleta</p>
-              <p className="text-xs text-slate-400">
-                Fecha dia 25 (virada automática) • Vence dia 02
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <span
+              aria-hidden="true"
+              className="w-10 h-10 rounded-xl hig-tertiary-surface flex items-center justify-center text-lg shrink-0"
+            >
+              💳
+            </span>
+            <div className="min-w-0">
+              <p className="hig-subhead font-semibold truncate">Cartão Nubank Ultravioleta</p>
+              <p className="hig-caption-1 text-[var(--hig-label-secondary)] truncate">
+                Corte dia 25 • Vencimento dia 02
               </p>
             </div>
           </div>
-          <span className="text-xs font-bold px-2.5 py-0.5 rounded-lg bg-purple-500/15 text-purple-300">
+
+          <span
+            className="hig-caption-1 font-semibold px-2.5 py-0.5 rounded-full shrink-0"
+            style={{
+              backgroundColor: 'rgba(203, 48, 224, 0.14)',
+              color: 'var(--hig-purple)',
+            }}
+          >
             {cardStatement.status === 'paid'
               ? 'Paga'
               : cardStatement.status === 'partial'
-              ? 'Paga Parcial'
+              ? 'Parcial'
               : 'Fatura Aberta'}
           </span>
         </div>
 
-        <div className="flex items-baseline justify-between pt-1">
-          <span className="text-xs text-slate-400">Saldo restante da fatura:</span>
-          <span className="text-base font-extrabold text-slate-100">
-            {formatCentsBRL(cardStatement.remainingBalanceInCents, privacyModeEnabled)}
+        <div className="pt-2 border-t border-[var(--hig-separator)] flex items-baseline justify-between">
+          <span className="hig-caption-1 text-[var(--hig-label-secondary)]">
+            Saldo atual da fatura
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="hig-title-3">
+              {formatCentsBRL(cardStatement.remainingBalanceInCents, privacyModeEnabled)}
+            </span>
+            <span aria-hidden="true" className="text-[var(--hig-label-tertiary)] text-lg">
+              ›
+            </span>
+          </div>
+        </div>
+      </button>
+
+      {/* Contas Fixas do Mês em Lista Agrupada (`06-lists-and-tables.md` • Q7) */}
+      <section className="space-y-2">
+        <div className="px-1 flex items-center justify-between">
+          <h2 className="hig-footnote font-semibold uppercase tracking-wide text-[var(--hig-label-secondary)]">
+            Contas Fixas do Mês
+          </h2>
+          <span className="hig-caption-1 text-[var(--hig-label-secondary)]">
+            Janela de 3 meses
           </span>
         </div>
-      </div>
 
-      {/* Contas Fixas do Mês (Molde Automático Q7) */}
-      <section className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold text-slate-200">
-            🔁 Contas Fixas do Mês (Molde Automático • Q7)
-          </h2>
-          <span className="text-xs text-slate-400">Janela de 3 meses</span>
-        </div>
-
-        <div className="space-y-2">
+        <div className="hig-grouped-card hig-grouped-list overflow-hidden">
           {fixedBillsThisMonth.map((bill) => (
             <div
               key={bill.id}
-              className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800"
+              className="p-3.5 flex items-center justify-between gap-3"
             >
-              <div>
-                <p className="text-xs font-bold text-slate-100">{bill.description}</p>
-                <p className="text-xs text-slate-400">
+              <div className="min-w-0">
+                <p className="hig-subhead font-semibold truncate">{bill.description}</p>
+                <p className="hig-caption-1 text-[var(--hig-label-secondary)]">
                   Vence em {bill.transactionDate} •{' '}
-                  {bill.status === 'paid' ? '✅ Pago' : '⏳ Pendente'}
+                  {bill.status === 'paid' ? 'Pago' : 'Pendente'}
                 </p>
               </div>
-              <div className="flex items-center gap-2.5">
-                <span className="text-xs font-extrabold text-slate-100">
+              <div className="flex items-center gap-2.5 shrink-0">
+                <span className="hig-subhead font-semibold">
                   {formatCentsBRL(bill.amountInCents, privacyModeEnabled)}
                 </span>
-                {bill.status === 'pending' && (
+                {bill.status === 'pending' ? (
                   <button
                     type="button"
                     onClick={() => markTransactionPaid(bill.id)}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                    className="px-3 py-1.5 rounded-full bg-[var(--hig-blue)] text-white hig-caption-1 font-semibold active:scale-95 transition"
                   >
-                    Pagar 1-Click
+                    Pagar
                   </button>
+                ) : (
+                  <span
+                    className="hig-caption-1 font-semibold px-2.5 py-1 rounded-full"
+                    style={{
+                      backgroundColor: 'rgba(52, 199, 89, 0.14)',
+                      color: 'var(--hig-green)',
+                    }}
+                  >
+                    Pago
+                  </span>
                 )}
               </div>
             </div>
@@ -168,4 +226,3 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     </div>
   );
 };
-
