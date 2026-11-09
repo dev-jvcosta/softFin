@@ -426,26 +426,67 @@ export interface Transaction {
 #### 6. UX Anti-Fricção (Perfil TDAH), Privacidade e Exportação (Q8 & Q9)
 * **Kit Inicial no 1º Login:** Criação automática da conta `"Carteira Principal"` e 8 categorias essenciais (*Alimentação, Moradia, Transporte, Lazer, Saúde, Assinaturas, Salário, Outros*).
 * **Regra dos 3 Segundos (Anotação Relâmpago):** Apenas **Valor** e **Categoria** exigem toque. Data (`Hoje`), Conta (`última usada`), Status (`Pago`) e Descrição (`nome da categoria`) são preenchidos automaticamente.
-* **Olhinho com Memória (`privacyModeEnabled`):** Esconde saldos (`R$ ••••`) e persiste a escolha entre sessões para proteger a privacidade no transporte público.
+* **Ícone de Privacidade com Memória (`privacyModeEnabled`):** Botão exclusivamente em símbolo (`eye` / `eye.slash`, sem rótulo textual `"Olhinho"` conforme `12-toolbars.md`) na barra de ferramentas superior, que oculta saldos (`R$ ••••`) e persiste a escolha entre sessões.
 * **Exportação Local com Aviso:** Geração de CSV/PDF via Web Worker funciona offline usando os dados locais e sinaliza com uma tag discreta (`"Pendente de sincronização"`) os itens que ainda estão na mochila local.
 
 ---
 
-## 8. Mapeamento de Telas para o Figma (UI Architecture)
+## 8. Especificação de Identidade Visual Apple HIG (`assets/design-system-apple`) & Adaptação TDAH
 
-Estrutura de telas pronta para ser gerada/mapeada via Figma MCP (Mobile-First `390x844`, Dark/Light Mode):
+Consolidado a partir das rodadas do `grill-me` + `apple-hig-matcher`:
 
-1. **Tela 01 — Auth & Reautenticação Segura (`LoginPage` + Modal `ReauthGuard`):**
-   * Login com 1 toque (Google) + Email/Senha e modal de renovação de sessão que preserva a fila offline.
-2. **Tela 02 — Dashboard Principal (`DashboardPage`):**
-   * Topbar com Status da Nuvem (`SyncStatusBadge`), botão **"Olhinho"** com memória e `OfflineBanner` inteligente.
-   * Card Principal de Saldo (LCP) mostrando *Saldo Atual* vs. *Saldo Projetado do Mês*.
-   * Resumo de Faturas de Cartão abertas e Contas Fixas próximas do vencimento.
-3. **Tela 03 — Modal / Sheet de Anotação Relâmpago (`QuickTransactionSheet`):**
-   * Teclado numérico imediato (`inputmode="decimal"`), grade visual das 8 categorias para toque único, toggle rápido de Parcelamento (`1x..12x` offline / `48x` online) e anexo de comprovante.
-4. **Tela 04 — Extrato & Gestão de Parcelas (`TransactionsPage`):**
-   * Navegação por mês, filtros rápidos (`Pago`, `Pendente`, `Cartão`), indicadores de sincronização por item (nuvem pendente, botão de reenviar foto) e Modal de Escopo de Edição (*"Apenas esta"* vs *"Esta e futuras"*).
-5. **Tela 05 — Detalhe da Fatura do Cartão & Antecipação (`CardStatementPage`):**
-   * Barra de limite disponível, data de corte (`closingDay`), seletor de múltiplas parcelas para **Antecipar com Desconto** (exibindo valor original riscado) e modal de Pagamento Total/Parcial.
-6. **Tela 06 — Carteiras, Contas Fixas & Configurações (`SettingsPage`):**
-   * Gestão de Contas/Cartões, **Moldes de Contas Fixas**, **Gaveta de Arquivados**, botão **"Conferir Meu Saldo"** e Exportação CSV/PDF local.
+### 8.1. Navegação Adaptativa (`04-tab-bars.md` & `03-sidebars.md`) e Ação Relâmpago (Decisão 1A)
+* **Separação Estrita entre Navegação e Ação:** A barra de abas inferior (*Tab Bar* no iOS `< 768px`) em **Liquid Glass** contém exclusivamente as **4 abas de navegação** (`Início`, `Extrato`, `Cartão`, `Ajustes`) com ícones vetoriais inspirados no *SF Symbols*.
+* **Adaptação Automática para iPadOS / macOS (`sidebarAdaptable`):** Em telas médias/grandes (`>= 768px`), a *Tab Bar* converte-se automaticamente em uma **Barra Lateral (*Sidebar*)** fixa na borda esquerda em *Liquid Glass*, mantendo a hierarquia limpa.
+* **Pílula Flutuante de Destaque (`⚡ Anotar (3s)`):** Posicionada como acessório flutuante em *Liquid Glass* tingido com `systemBlue` logo acima da *Tab Bar* (estilo *Apple Reminders / Apple Music MiniPlayer*), garantindo alcance imediato do polegar sem poluir as abas.
+
+### 8.2. Barra de Ferramentas Superior & Títulos (`12-toolbars.md` & `17-typography.md`) (Decisão 4)
+* **Proibição do Nome do App como Título:** O topo exibe o título conciso da visualização ativa (**"Início"**, **"Extrato"**, **"Cartão"**, **"Ajustes"**) utilizando a escala **SF Pro Large Title (`34pt Bold`, line-height `41pt`)**.
+* **Controles de Barra Enxutos:** No canto superior direito ficam apenas dois elementos:
+  1. **Selo de Sincronização (`SyncStatusBadge`):** Toque abre um menu rápido (*Popover*) para diagnóstico e simulação de conectividade/mochila offline.
+  2. **Botão de Privacidade (Símbolo Puro):** Ícone vetorial `eye` / `eye.slash` sem o texto `"Olhinho"`, seguindo a diretriz de símbolos da Apple.
+
+### 8.3. Folhas (*Sheets*), Menus de Contexto, *Action Sheets* e *Undo* (Decisões 2, 5A, 5B e 6)
+* **Gaveta Nativa (`AppleSheet` — `07-sheets.md`):**
+  * Substitui modais quadrados por uma folha inferior com *grabber* (`36x5px`), botão **"Cancelar"** à esquerda na barra de ferramentas da folha e fechamento automático em **1 toque na categoria**.
+  * **Segmented Control & Stepper (`06-segmented-controls.md` & `08-steppers.md`):** Seleção entre `À Vista` e `Parcelado` com pílulas rápidas (`2x`, `3x`, `6x`, `10x`, `12x`) e controle incremental `- / +` (até `12x` offline / `48x` online).
+  * **Proteção A — Validação Dinâmica da 1ª Parcela (`04-entering-data.md`):** Se o usuário informar uma entrada `>= Valor Total`, os botões de categoria são desativados imediatamente e um aviso inline em `systemRed` informa: *"A 1ª parcela precisa ser menor que o valor total"*.
+  * **Proteção B — Pílula de *Undo* de 4 Segundos (`24-undo-and-redo.md`):** Ao salvar no toque único, exibe uma pílula flutuante discreta (`"Salvo em [Categoria] — Desfazer"`) por 4 segundos para reverter toques por impulso com 1 clique e reabrir a gaveta.
+* **Listas Agrupadas (*Inset Grouped*) + *Action Sheet* (`06-lists-and-tables.md` & `01-action-sheets.md`):**
+  * Linhas do extrato limpas, sem botões de edição/exclusão pendurados.
+  * **Exceção de Segurança TDAH para Falha Offline:** Transações com `attachmentSyncStatus === 'failed'` mantêm a barra de ação visível direto na linha (`"Tentar de novo"` / `"Descartar"`).
+  * Toque em qualquer lançamento abre a **Folha de Ação (*Action Sheet*)** do iOS para editar o escopo da parcela (*"Alterar Apenas Esta Parcela"* vs *"Alterar Esta e Todas as Futuras"*) ou *"Excluir Lançamento"* (estilizado em `systemRed` como ação destrutiva).
+* **Alertas Críticos Centralizados (`AppleAlert` — `02-alerts.md`):**
+  * Reservados exclusivamente para bloqueios críticos: **Teto da Mochila Offline (250 itens)** e **Sessão Expirada com Mochila Pendente (`ReauthGuardModal`)**. Em **150 itens**, exibe apenas o banner passivo em `systemOrange`.
+
+### 8.4. Cores Dinâmicas (`04-color.md`), *Liquid Glass* (`11-materials.md`) e Modo Claro/Escuro (Decisão 3)
+* **Regra de Camadas (*Liquid Glass* vs. Conteúdo Sólido):**
+  * **Camada Funcional Flutuante (`Liquid Glass`):** `backdrop-filter: blur(24px) saturate(190%)` aplicado somente à *Top Toolbar*, *Tab Bar*, *Sidebar*, *Action Sheets* e *Alerts*.
+  * **Camada de Conteúdo (`systemGroupedBackground`):** Cartões e listas agrupadas 100% sólidos (`#FFFFFF` sobre `#F2F2F7` no modo Claro; `#1C1C1E` sobre `#000000` no modo Escuro).
+* **Paleta Semântica Oficial Apple:**
+  * **Destaque (*Accent Color*):** `systemBlue` (`#0088FF` Light / `#0091FF` Dark).
+  * **Receitas / Confirmado:** `systemGreen` (`#34C759` Light / `#30D158` Dark).
+  * **Despesas Críticas / Destrutivo:** `systemRed` (`#FF383C` Light / `#FF4245` Dark).
+  * **Pendentes / Mochila Offline:** `systemOrange` (`#FF8D28` Light / `#FF9230` Dark).
+  * **Cartão de Crédito / Antecipação:** `systemPurple` (`#CB30E0` Light / `#DB34F2` Dark) & `systemIndigo` (`#6155F5` Light / `#6D7CFF` Dark).
+* **Controle de Aparência de 3 Estados:** Sincronizado via `<meta name="color-scheme">` e CSS `light-dark()` com seletor *Segmented Control* em **Ajustes** (`Automático` | `Claro` | `Escuro`).
+
+---
+
+## 9. Mapeamento de Telas para o Figma (UI Architecture — Apple HIG)
+
+Estrutura de telas pronta para ser gerada/mapeada no Figma (`390x844` iPhone 16 & `1024x768` iPadOS/macOS Split View, Light/Dark Mode):
+
+1. **Tela 01 — Auth & Alerta Nativo de Reautenticação (`LoginPage` + `AppleAlert ReauthGuard`):**
+   * Alerta modal centralizado em *Liquid Glass* que preserva a fila offline quando o token vence.
+2. **Tela 02 — Início (`DashboardPage`):**
+   * *Navigation Bar* com *Large Title* `"Início"`, símbolo `eye`/`eye.slash` e `SyncStatusBadge` com *Popover* de diagnóstico.
+   * Card sólido (*Inset Grouped*) de Saldo Atual vs. Projetado (`Title 1` / `Large Title`), Fatura Aberta e Contas Fixas do Mês, acompanhado da pílula flutuante `"⚡ Anotar (3s)"` em `systemBlue`.
+3. **Tela 03 — Gaveta de Anotação Relâmpago (`QuickTransactionSheet`):**
+   * *Sheet* inferior do iOS com *grabber*, botão `"Cancelar"`, input decimal em `Large Title`, *Segmented Control* (`À Vista` | `Parcelado`), validação em tempo real da 1ª parcela em `systemRed`, grade de 8 categorias para toque único e pílula de *Undo* de 4s.
+4. **Tela 04 — Extrato Agrupado & *Action Sheets* de Parcelas (`TransactionsPage`):**
+   * Lista *Inset Grouped* limpa com alerta inline exclusivo para foto com erro (`failed`) e *Action Sheet* nativa ao tocar no item (*Editar Escopo de Parcela: Única vs. Futuras* e *Excluir* destrutivo em `systemRed`).
+5. **Tela 05 — Cartão & Antecipação (`CardStatementPage`):**
+   * Resumo da fatura com corte automático (`closingDay`), lista agrupada de parcelas futuras elegíveis para antecipação com desconto (`systemPurple` + valor original riscado) e pagamento total/parcial.
+6. **Tela 06 — Ajustes (`SettingsPage`):**
+   * *Segmented Control* de Aparência (`Automático`, `Claro`, `Escuro`), Bancada de Simulação Offline, Auditoria *"Conferir Meu Saldo"*, Moldes de Contas Fixas, Gaveta de Arquivados e Exportação CSV local.
