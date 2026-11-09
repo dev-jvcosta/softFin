@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* MANDATORY: Apply color-scheme to :root for viewport-wide theming */
+:root {
+  color-scheme: light dark;
+}
+
+dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+/* DO ONLY apply this class to transaction items OUTSIDE the initial layout viewport (below-the-fold) */
+.tx-item-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 76px;
+}
+
